@@ -20,7 +20,6 @@
 extern crate unicode;
 use std::fmt;
 use std::ops::Range;
-use std::num::{SignedInt, Int};
 
 // A Rope, based on an unbalanced binary tree. The rope is somewhat special in
 // that it tracks positions in the source text. So when locating a position in
@@ -86,7 +85,7 @@ impl Rope {
     pub fn insert(&mut self, start: usize, text: String) {
         self.insert_inner(start,
                           text,
-                          |this, node| this.root.insert(node, start, start))
+                          |this, node| this.root.insert(node, start))
     }
 
     fn insert_inner<F>(&mut self,
@@ -103,7 +102,7 @@ impl Rope {
 
         let len = text.len();
         let storage = text.into_bytes();
-        let new_node = box Node::new_leaf(&storage[..][0] as *const u8, len, 0);
+        let new_node = box Node::new_leaf(&storage[..][0] as *const u8, len);
         self.storage.push(storage);
 
         match do_insert(self, new_node) {
@@ -131,7 +130,7 @@ impl Rope {
     }
 
     pub fn remove(&mut self, start: usize, end: usize) {
-        self.remove_inner(start, end, |this| this.root.remove(start, end, start))
+        self.remove_inner(start, end, |this| this.root.remove(start, end))
     }
 
     fn remove_inner<F>(&mut self,
@@ -169,6 +168,11 @@ impl Rope {
         // It should be possible to view a &char as a &[u8] somehow, and then
         // we can optimise this (FIXME).
         self.replace_str(start, &new_char.to_string()[..]);
+    }
+
+    pub fn replace_str(&mut self, start: usize, new_str: &str) {
+        assert!(start + new_str.len() <= self.len);
+        self.root.replace(start, new_str);
     }
 
     pub fn slice(&self, Range { start, end }: Range<usize>) -> RopeSlice {
@@ -480,13 +484,6 @@ impl Node {
             Node::LeafNode(ref mut l) => l.replace(start, new_str),
         }        
     }
-
-    fn find_last_char(&self, c: char) -> Option<usize> {
-        match *self {
-            Node::InnerNode(ref i) => i.find_last_char(c),
-            Node::LeafNode(ref l) => l.find_last_char(c),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -647,25 +644,6 @@ impl Inode {
             }
         }
     }
-
-    fn find_last_char(&self, c: char) -> Option<usize> {
-        // TODO use map or something
-        match self.right {
-            Some(ref right) => match right.find_last_char(c) {
-                Some(x) => return Some(x),
-                None => {},
-            },
-            None => {}
-        }
-        match self.left {
-            Some(ref left) => match left.find_last_char(c) {
-                Some(x) => return Some(x),
-                None => {},
-            },
-            None => {}
-        }
-        None
-    }
 }
 
 impl Lnode {
@@ -703,14 +681,13 @@ impl Lnode {
         return NodeAction::Change(box new_node, delta);
     }
 
-    fn insert(&mut self, mut node: Box<Node>, start: usize) -> NodeAction {
+    fn insert(&mut self, node: Box<Node>, start: usize) -> NodeAction {
         let len = node.len();
         if start == 0 {
             // Insert at the start of the node
             let new_node = box Node::new_inner(Some(node),
                                                Some(box Node::LeafNode(self.clone())),
-                                               len,
-                                               0);
+                                               len);
             return NodeAction::Change(new_node, len as isize)
         }
 
@@ -718,7 +695,6 @@ impl Lnode {
             // Insert at the end of the node
             let new_node = box Node::new_inner(Some(box Node::LeafNode(self.clone())),
                                                Some(node),
-                                               self.len,
                                                self.len);
             return NodeAction::Change(new_node, len as isize)
         }
@@ -734,7 +710,7 @@ impl Lnode {
     }
 
     fn find_slice<'a>(&'a self, start: usize, end: usize, slice: &mut RopeSlice<'a>) {
-        debug!("Lnode::find_slice: {}, {}, {}, {}", start, end, self.len);
+        debug!("Lnode::find_slice: {}, {}, {}", start, end, self.len);
         debug_assert!(start < self.len, "Shouldn't have called this fn, we're out of bounds");
 
         slice.nodes.push(self);
@@ -754,46 +730,12 @@ impl Lnode {
             ::std::intrinsics::copy_nonoverlapping_memory(addr, &new_str.as_bytes()[0], new_str.len());
         }
     }
-
-    fn find_last_char(&self, needle: char) -> Option<usize> {
-        // FIXME due to multi-byte chars, this will give false positives
-        // FIXME use std::str::GraphemeIndices to do this!
-        let mut loc = self.len as isize - 1;
-        while loc >= 0 {
-            unsafe {
-                let c = *((self.text as usize + loc as usize) as *const u8);
-                if c as char == needle {
-                    return Some(loc as usize)
-                }
-            }
-            loc -= 1;
-        }
-
-        return None
-    }
 }
 
-// The state of searching through a rope.
-enum Search {
-    // TODO comment
-    Continue(usize),
-    // TODO comment
-    Done(usize)
-}
-
-fn minz<I: SignedInt>(x: I) -> I {
-    if x.is_negative() {
-        return I::zero();
-    }
-
-    x
-}
 
 #[cfg(test)]
 mod test {
     use super::*;
-    // FIXME is this a Rust bug? Why is minz not imported by the glob import?
-    use super::minz;
 
     #[test]
     fn test_new() {
@@ -804,22 +746,6 @@ mod test {
         let r = Rope::from_string("Hello world!".to_string());
         assert!(r.len() == 12);
         assert!(r.to_string() == "Hello world!");
-    }
-
-    #[test]
-    fn test_minz() {
-        let x: i32 = 0;
-        assert!(super::minz(x) == 0);
-        let x: i32 = 42;
-        assert!(minz(x) == 42);
-        let x: i32 = -42;
-        assert!(minz(x) == 0);
-        let x: isize = 0;
-        assert!(minz(x) == 0);
-        let x: isize = 42;
-        assert!(minz(x) == 42);
-        let x: isize = -42;
-        assert!(minz(x) == 0);
     }
 
     #[test]

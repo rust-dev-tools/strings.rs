@@ -1,4 +1,4 @@
-# Utility string data structures
+# Utility string data structures for Rust
 
 Currently contains (more welcome):
 
@@ -14,5 +14,6 @@ TODO doc char iterators
 TODO
 ----
 
+Cargo.toml
 share code between rope and src_rope
 balanced rope

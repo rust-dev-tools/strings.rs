@@ -1,0 +1,8 @@
+[package]
+name = "strings"
+version = "0.0.1"
+authors = ["nrc <ncameron@mozilla.com>"]
+
+[lib]
+name = "strings"
+path = "src/lib.rs"

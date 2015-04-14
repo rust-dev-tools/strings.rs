@@ -4,8 +4,8 @@
 #![feature(box_patterns)]
 #![feature(unicode)]
 #![feature(rustc_private)]
-#![feature(collections)]
 #![feature(core)]
+#![feature(str_char)]
 
 // TODO use crates.io log instead
 #[macro_use]

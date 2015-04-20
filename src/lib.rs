@@ -2,7 +2,6 @@
 
 #![feature(box_syntax)]
 #![feature(box_patterns)]
-#![feature(unicode)]
 #![feature(rustc_private)]
 #![feature(core)]
 #![feature(str_char)]

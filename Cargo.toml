@@ -6,3 +6,6 @@ authors = ["nrc <ncameron@mozilla.com>"]
 [lib]
 name = "strings"
 path = "src/lib.rs"
+
+[dependencies.unicode-width]
+unicode-width = "0.1.1"

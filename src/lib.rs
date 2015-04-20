@@ -5,6 +5,7 @@
 #![feature(rustc_private)]
 #![feature(core)]
 #![feature(str_char)]
+#![feature(unicode)]
 
 // TODO use crates.io log instead
 #[macro_use]

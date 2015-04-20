@@ -18,12 +18,12 @@
 // better allocation
 // balancing?
 
-extern crate unicode_width;
+extern crate rustc_unicode;
 
 use std::fmt;
 use std::ops::Range;
 use std::num::{SignedInt, Int};
-use self::unicode_width::UnicodeWidthChar;
+
 
 // A Rope, based on an unbalanced binary tree. The rope is somewhat special in
 // that it tracks positions in the source text. So when locating a position in
@@ -279,7 +279,7 @@ impl<'rope> Iterator for RopeChars<'rope> {
 impl<'rope> RopeChars<'rope> {
     fn read_char(&mut self) -> char {
         let first_byte = self.read_byte();
-        let width = UnicodeWidthChar::width(first_byte as char).unwrap();
+        let width = rustc_unicode::str::utf8_char_width(first_byte);
         if width == 1 {
             return first_byte as char
         }

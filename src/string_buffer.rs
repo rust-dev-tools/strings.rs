@@ -34,7 +34,7 @@ pub struct StringBuffer {
     // we append a string.
     last: *mut StringNode,
     // The length of the whole StringBuffer.
-    len: usize,
+    pub len: usize,
 }
 
 pub struct Chars<'a> {

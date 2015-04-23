@@ -75,7 +75,7 @@ impl StringBuffer {
         }
     }
 
-    // Returns the number of characters from start of the last line in the
+    // Returns the number of characters from the start of the last line in the
     // StringBuffer.
     // Note that it is possible for this operation to take a long time in
     // pathological cases (lots of nodes, few line breaks).
@@ -87,6 +87,15 @@ impl StringBuffer {
                 0
             })
         }
+    }
+
+    pub fn truncate(&mut self, new_len: usize) {
+        let last = unsafe {
+            &mut (*self.last).data
+        };
+        let last_len = last.len() - (self.len - new_len);
+        last.truncate(last_len);
+        self.len = new_len;
     }
 
     pub fn chars<'a>(&'a self) -> Chars<'a> {
@@ -292,6 +301,36 @@ mod test {
             assert!(c == cc);
             assert!(i == b);
         }
+    }
+
+    #[test]
+    fn test_truncate() {
+        // One node.
+        let mut s: StringBuffer = "Hello world!".parse().unwrap();
+        s.truncate(8);
+        assert!(s.to_string() == "Hello wo");
+        assert!(s.len == 8);
+
+        // Two nodes.
+        let mut s: StringBuffer = StringBuffer::with_capacity(2);
+        s.push_str("Ho");
+        s.push_str(" world!");
+        s.truncate(4);
+        assert!(s.to_string() == "Ho w");
+        assert!(s.len == 4);
+    }
+
+    // Test that truncating over a node panics.
+    // TODO this should actually work.
+    #[test]
+    #[should_panic]
+    fn test_truncate_too_short() {
+        let mut s: StringBuffer = StringBuffer::with_capacity(2);
+        s.push_str("Ho");
+        s.push_str(" world!");
+        s.truncate(1);
+        //assert!(s.to_string() == "H");
+        //assert!(s.len == 1);
     }
 
     // TODO test unicode

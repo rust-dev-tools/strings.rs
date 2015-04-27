@@ -83,7 +83,7 @@ impl StringBuffer {
         unsafe {
             let result = (&*self.last).cur_offset();
             result.unwrap_or_else(|| {
-                println!("FIXME Unimplemented cur_offset across node boundaries");
+                println!("FIXME(#3) Unimplemented cur_offset across node boundaries");
                 0
             })
         }
@@ -93,6 +93,7 @@ impl StringBuffer {
         let last = unsafe {
             &mut (*self.last).data
         };
+        // FIXME(#3) this will overflow if we need to truncate past the last node.
         let last_len = last.len() - (self.len - new_len);
         last.truncate(last_len);
         self.len = new_len;

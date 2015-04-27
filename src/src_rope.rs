@@ -22,7 +22,6 @@ extern crate rustc_unicode;
 
 use std::fmt;
 use std::ops::Range;
-use std::num::{SignedInt, Int};
 
 
 // A Rope, based on an unbalanced binary tree. The rope is somewhat special in
@@ -1123,9 +1122,9 @@ enum Search {
     Done(usize)
 }
 
-fn minz<I: SignedInt>(x: I) -> I {
+fn minz(x: isize) -> isize {
     if x.is_negative() {
-        return I::zero();
+        return 0;
     }
 
     x
@@ -1134,7 +1133,6 @@ fn minz<I: SignedInt>(x: I) -> I {
 #[cfg(test)]
 mod test {
     use super::*;
-    // FIXME is this a Rust bug? Why is minz not imported by the glob import?
     use super::minz;
 
     #[test]
@@ -1150,11 +1148,11 @@ mod test {
 
     #[test]
     fn test_minz() {
-        let x: i32 = 0;
+        let x: isize = 0;
         assert!(super::minz(x) == 0);
-        let x: i32 = 42;
+        let x: isize = 42;
         assert!(minz(x) == 42);
-        let x: i32 = -42;
+        let x: isize = -42;
         assert!(minz(x) == 0);
         let x: isize = 0;
         assert!(minz(x) == 0);

@@ -3,9 +3,10 @@
 #![feature(box_syntax)]
 #![feature(box_patterns)]
 #![feature(rustc_private)]
-#![feature(core)]
+#![feature(core_intrinsics)]
 #![feature(str_char)]
 #![feature(unicode)]
+#![allow(raw_pointer_derive)]
 
 // TODO use crates.io log instead
 #[macro_use]

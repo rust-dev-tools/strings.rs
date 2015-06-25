@@ -23,7 +23,6 @@ extern crate rustc_unicode;
 use std::str::FromStr;
 use std::{cmp, fmt};
 
-
 const MAX_CAPACITY: usize = 0xffff;
 const INIT_CAPACITY: usize = 0xff; 
 
@@ -81,21 +80,34 @@ impl StringBuffer {
     // pathological cases (lots of nodes, few line breaks).
     pub fn cur_offset(&self) -> usize {
         unsafe {
+            // Try the last node first.
             let result = (&*self.last).cur_offset();
-            result.unwrap_or_else(|| {
-                println!("FIXME(#3) Unimplemented cur_offset across node boundaries");
-                0
-            })
+
+            // If the last node contains no newlines, try the nodes before.
+            let result = result.or_else(|| self.first.cur_offset());
+
+            // If there are no newlines at all, return the length of the buffer.
+            result.unwrap_or(self.len)
         }
     }
 
     pub fn truncate(&mut self, new_len: usize) {
+        if new_len >= self.len {
+            return;
+        }
+
         let last = unsafe {
             &mut (*self.last).data
         };
-        // FIXME(#3) this will overflow if we need to truncate past the last node.
-        let last_len = last.len() - (self.len - new_len);
-        last.truncate(last_len);
+
+        // Check whether we need to truncate past the last node.
+        let last_len = last.len();
+        if last_len > self.len - new_len {
+            last.truncate(last_len - (self.len - new_len));
+        } else {
+            self.last = self.first.truncate(new_len);
+        }
+
         self.len = new_len;
     }
 
@@ -109,6 +121,20 @@ impl StringNode {
         StringNode {
             data: String::with_capacity(capacity),
             next: None,
+        }
+    }
+
+    // Truncates the string starting in this node to new_len chars. Returns a
+    // reference to the new last node.
+    fn truncate(&mut self, new_len: usize) -> &mut StringNode {
+        let node_len = self.data.len();
+
+        if node_len >= new_len {
+            self.data.truncate(new_len);
+            self.next = None;
+            self
+        } else {
+            self.next.as_mut().unwrap().truncate(new_len - node_len)
         }
     }
 
@@ -134,9 +160,18 @@ impl StringNode {
         }
     }
 
-    // None if there is no new line in this node.
+    // Returns the length of the string stored in the list starting in this node
+    fn total_len(&self) -> usize {
+        self.data.len() + self.next.as_ref().map(|next| next.total_len()).unwrap_or(0)
+    }
+
+    // Returns None if there is no new line in this node or those following.
     fn cur_offset(&self) -> Option<usize> {
-        self.data.rfind('\n').map(|i| self.data.len() - i - 1)
+        // First check if there is a newline in the subsequent nodes.
+        let result = self.next.as_ref().and_then(|next| next.cur_offset());
+        
+        // Otherwise, try to find a newline in the current node.
+        result.or_else(|| self.data.rfind('\n').map(|i| self.total_len() - i - 1))
     }
 }
 
@@ -321,17 +356,89 @@ mod test {
         assert!(s.len == 4);
     }
 
-    // Test that truncating over a node panics.
-    // TODO this should actually work.
     #[test]
-    #[should_panic]
-    fn test_truncate_too_short() {
+    fn test_truncate_multi() {
+        let mut s: StringBuffer = StringBuffer::with_capacity(9);
+        s.push_str("123456789");
+        s.push_str("abc");
+        assert!(count_nodes(&s) == 2);
+        assert!(s.to_string() == "123456789abc");
+
+        s.truncate(10);
+        assert!(count_nodes(&s) == 2);
+        assert!(s.to_string() == "123456789a");
+
+        s.truncate(9);
+        assert!(count_nodes(&s) == 1);
+        assert!(s.to_string() == "123456789");
+
+        s.truncate(3);
+        assert!(count_nodes(&s) == 1);
+        assert!(s.to_string() == "123");
+    }
+
+    #[test]
+    fn test_truncate_short() {
         let mut s: StringBuffer = StringBuffer::with_capacity(2);
         s.push_str("Ho");
         s.push_str(" world!");
-        s.truncate(1);
-        //assert!(s.to_string() == "H");
-        //assert!(s.len == 1);
+        s.truncate(2);
+        assert_eq!("Ho", s.to_string());
+        assert!(s.len == 2);
+        assert!(count_nodes(&s) == 1);
+    }
+
+    #[test]
+    fn test_truncate_noop() {
+        let mut s: StringBuffer = StringBuffer::with_capacity(2);
+        s.push_str("Ho");
+        s.truncate(5000);
+        assert_eq!("Ho", s.to_string());
+        assert!(s.len == 2);
+    }
+
+    #[test]
+    fn test_cur_offset_no_newlines() {
+        let mut s = StringBuffer::new();
+        s.push_str("Hello, World!");
+        assert_eq!(s.len, s.cur_offset());
+    }
+
+    #[test]
+    fn test_cur_offset() {
+        let mut s = StringBuffer::new();
+        s.push_str("Hello\nWorld! How goes it?");
+        assert_eq!(19, s.cur_offset());
+    }
+
+    #[test]
+    fn test_cur_offset_short() {
+        let mut s = StringBuffer::with_capacity(10);
+        s.push_str("Hello\nW");
+        s.push_str("orld! How goes it?");
+        assert!(2 == count_nodes(&s));
+        assert_eq!(19, s.cur_offset());
+    }
+
+    #[test]
+    fn test_cur_offset_middle() {
+        let mut s = StringBuffer::with_capacity(10);
+        s.push_str("Hello\nW");
+        s.push_str("orld!\nHow goes it?");
+        assert_eq!(12, s.cur_offset());
+    }
+
+    #[test]
+    fn test_cur_offset_after_truncate() {
+        let mut s = StringBuffer::with_capacity(10);
+        s.push_str("Hello\nWorld!\nHow goes it?");
+        assert!(2 == count_nodes(&s));
+
+        s.truncate(10);
+        assert_eq!(4, s.cur_offset());
+
+        s.truncate(3);
+        assert_eq!(3, s.cur_offset());
     }
 
     // TODO test unicode

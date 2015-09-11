@@ -18,13 +18,12 @@
 //   chars -> char_indices and flip order of char/index
 // Eq
 
-extern crate rustc_unicode;
-
 use std::str::FromStr;
 use std::{cmp, fmt};
+use util::utf8_char_width;
 
 const MAX_CAPACITY: usize = 0xffff;
-const INIT_CAPACITY: usize = 0xff; 
+const INIT_CAPACITY: usize = 0xff;
 
 pub struct StringBuffer {
     first: Box<StringNode>,
@@ -57,7 +56,7 @@ impl StringBuffer {
 
     pub fn with_capacity(capacity: usize) -> StringBuffer {
         let mut result = StringBuffer {
-            first: box StringNode::with_capacity(capacity),
+            first: Box::new(StringNode::with_capacity(capacity)),
             last: 0 as *mut StringNode,
             len: 0,
         };
@@ -153,7 +152,7 @@ impl StringNode {
                                              INIT_CAPACITY) * 2,
                                     MAX_CAPACITY);
             let next_cap = cmp::max(next_cap, text.len());
-            self.next = Some(box StringNode::with_capacity(next_cap));
+            self.next = Some(Box::new(StringNode::with_capacity(next_cap)));
             let next = self.next.as_mut().unwrap();
             next.push_str(text);
             &mut **next
@@ -169,7 +168,7 @@ impl StringNode {
     fn cur_offset(&self) -> Option<usize> {
         // First check if there is a newline in the subsequent nodes.
         let result = self.next.as_ref().and_then(|next| next.cur_offset());
-        
+
         // Otherwise, try to find a newline in the current node.
         result.or_else(|| self.data.rfind('\n').map(|i| self.total_len() - i - 1))
     }
@@ -208,7 +207,7 @@ impl<'a> Iterator for Chars<'a> {
                 self.cur_byte = 0;
                 self.cur_node = n;
             } else {
-                return None;                
+                return None;
             }
         }
 
@@ -230,7 +229,7 @@ impl<'a> Chars<'a> {
 
     fn read_char(&mut self) -> char {
         let first_byte = self.read_byte();
-        let width = rustc_unicode::str::utf8_char_width(first_byte);
+        let width = utf8_char_width(first_byte);
         if width == 1 {
             return first_byte as char
         }
@@ -246,7 +245,7 @@ impl<'a> Chars<'a> {
             }
         }
         match ::std::str::from_utf8(&buf[..width]).ok() {
-            Some(s) => s.char_at(0),
+            Some(s) => s.chars().nth(0).expect("FATAL: we checked presence of this before"),
             None => panic!("bad chars in StringBuffer")
         }
     }

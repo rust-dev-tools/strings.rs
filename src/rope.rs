@@ -17,10 +17,9 @@
 // better allocation
 // balancing?
 
-extern crate rustc_unicode;
-
 use std::fmt;
 use std::ops::Range;
+use util::utf8_char_width;
 
 // A Rope, based on an unbalanced binary tree. The rope is somewhat special in
 // that it tracks positions in the source text. So when locating a position in
@@ -103,7 +102,7 @@ impl Rope {
 
         let len = text.len();
         let storage = text.into_bytes();
-        let new_node = box Node::new_leaf(&storage[..][0] as *const u8, len);
+        let new_node = Box::new(Node::new_leaf(&storage[..][0] as *const u8, len));
         self.storage.push(storage);
 
         match do_insert(self, new_node) {
@@ -234,7 +233,7 @@ impl<'rope> Iterator for RopeChars<'rope> {
 impl<'rope> RopeChars<'rope> {
     fn read_char(&mut self) -> char {
         let first_byte = self.read_byte();
-        let width = rustc_unicode::str::utf8_char_width(first_byte);
+        let width = utf8_char_width(first_byte);
         if width == 1 {
             return first_byte as char
         }
@@ -250,7 +249,7 @@ impl<'rope> RopeChars<'rope> {
             }
         }
         match ::std::str::from_utf8(&buf[..width]).ok() {
-            Some(s) => s.char_at(0),
+            Some(s) => s.chars().nth(0).expect("FATAL: we checked presence of this before"),
             None => panic!("bad chars in rope")
         }
     }
@@ -263,7 +262,7 @@ impl<'rope> RopeChars<'rope> {
         let addr = addr as *const u8;
         unsafe {
             *addr
-        }        
+        }
     }
 }
 
@@ -483,7 +482,7 @@ impl Node {
         match *self {
             Node::InnerNode(ref mut i) => i.replace(start, new_str),
             Node::LeafNode(ref mut l) => l.replace(start, new_str),
-        }        
+        }
     }
 }
 
@@ -675,39 +674,39 @@ impl Lnode {
         let delta = -((end - start) as isize);
         // Split the node (span to remove is in the middle of the node).
         let new_node = Node::new_inner(
-            Some(box Node::new_leaf(self.text, start)),
-            Some(box Node::new_leaf((self.text as usize + end) as *const u8,
-                                    old_len - end)),
+            Some(Box::new(Node::new_leaf(self.text, start))),
+            Some(Box::new(Node::new_leaf((self.text as usize + end) as *const u8,
+                                    old_len - end))),
             start);
-        return NodeAction::Change(box new_node, delta);
+        return NodeAction::Change(Box::new(new_node), delta);
     }
 
     fn insert(&mut self, node: Box<Node>, start: usize) -> NodeAction {
         let len = node.len();
         if start == 0 {
             // Insert at the start of the node
-            let new_node = box Node::new_inner(Some(node),
-                                               Some(box Node::LeafNode(self.clone())),
-                                               len);
+            let new_node = Box::new(Node::new_inner(Some(node),
+                                                    Some(Box::new(Node::LeafNode(self.clone()))),
+                                                    len));
             return NodeAction::Change(new_node, len as isize)
         }
 
         if start == self.len {
             // Insert at the end of the node
-            let new_node = box Node::new_inner(Some(box Node::LeafNode(self.clone())),
-                                               Some(node),
-                                               self.len);
+            let new_node = Box::new(Node::new_inner(Some(Box::new(Node::LeafNode(self.clone()))),
+                                                    Some(node),
+                                                    self.len));
             return NodeAction::Change(new_node, len as isize)
         }
 
         // Insert into the middle of the node
-        let left = Some(box Node::new_leaf(self.text, start));
-        let new_left = box Node::new_inner(left, Some(node), start);
-        let right = Some(box Node::new_leaf((self.text as usize + (start)) as *const u8,
-                                            self.len - start));
-        let new_node = box Node::new_inner(Some(new_left), right, start + len);
+        let left = Some(Box::new(Node::new_leaf(self.text, start)));
+        let new_left = Box::new(Node::new_inner(left, Some(node), start));
+        let right = Some(Box::new(Node::new_leaf((self.text as usize + (start)) as *const u8,
+                                                  self.len - start)));
+        let new_node = Box::new(Node::new_inner(Some(new_left), right, start + len));
 
-        return NodeAction::Change(new_node, len as isize)        
+        return NodeAction::Change(new_node, len as isize)
     }
 
     fn find_slice<'a>(&'a self, start: usize, end: usize, slice: &mut RopeSlice<'a>) {
@@ -724,11 +723,12 @@ impl Lnode {
     }
 
     fn replace(&mut self, start: usize, new_str: &str) {
-        debug!("Lnode::replace: {}, {}, {}", start, new_str, self.len);
-        debug_assert!(start + new_str.len() <= self.len);
+        println!("Lnode::replace: {}, {}, {}", start, new_str, self.len);
+        debug_assert!(start + new_str.bytes().len() <= self.len);
+
         let addr = (self.text as usize + start) as *mut u8;
         unsafe {
-            ::std::intrinsics::volatile_copy_nonoverlapping_memory(addr, &new_str.as_bytes()[0], new_str.len());
+            ::std::ptr::copy_nonoverlapping(new_str.as_ptr(), addr, new_str.bytes().len());
         }
     }
 }

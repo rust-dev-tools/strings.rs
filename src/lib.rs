@@ -1,7 +1,5 @@
 //TODO licence
 
-#![allow(raw_pointer_derive)]
-
 // TODO use crates.io log instead
 #[macro_use]
 extern crate log;

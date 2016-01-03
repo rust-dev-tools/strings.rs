@@ -204,6 +204,35 @@ impl fmt::Debug for StringBuffer {
     }
 }
 
+impl PartialEq for StringBuffer {
+    fn eq(&self, other: &StringBuffer) -> bool {
+        // Shortcut if sizes differ
+        if self.len != other.len { return false }
+
+        {
+            let mut this_last = &*self.first;
+            let mut other_last = &*other.first;
+
+            loop {
+                if this_last.data != other_last.data { return false }
+                let this_next = this_last.next.as_ref();
+                let other_next = other_last.next.as_ref();
+
+                match (this_next, other_next) {
+                    (Some(this_next), Some(other_next)) => {
+                        this_last = this_last;
+                        other_last = other_next;
+                    },
+                    (None, None) => return true,
+                    _ => return false
+                }
+            }
+        }
+    }
+}
+
+impl Eq for StringBuffer {}
+
 impl<'a> Iterator for Chars<'a> {
     type Item = (char, usize);
 
@@ -444,6 +473,21 @@ mod test {
 
         s.truncate(3);
         assert_eq!(3, s.cur_offset());
+    }
+
+    #[test]
+    fn test_eq() {
+        let s1: StringBuffer = "Hello".parse().unwrap();
+        let s2: StringBuffer = "Hello".parse().unwrap();
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_neq() {
+        let s1: StringBuffer = "Hello".parse().unwrap();
+        let s2: StringBuffer = "Hells".parse().unwrap();
+        assert_eq!(s1, s2);
     }
 
     // TODO test unicode

@@ -172,6 +172,14 @@ impl StringNode {
         // Otherwise, try to find a newline in the current node.
         result.or_else(|| self.data.rfind('\n').map(|i| self.total_len() - i - 1))
     }
+
+    // Returns a flat clone of a node
+    fn flat_clone(&self) -> StringNode {
+        StringNode {
+            data: self.data.clone(),
+            next: None
+        }
+    }
 }
 
 impl FromStr for StringBuffer {
@@ -250,6 +258,30 @@ impl<'a> Iterator for Chars<'a> {
         let result = self.read_char();
 
         return Some((result, byte));
+    }
+}
+
+impl Clone for StringBuffer {
+    fn clone(&self) -> StringBuffer {
+        let mut result = StringBuffer {
+            first: Box::new(self.first.flat_clone()),
+            last: 0 as *mut StringNode,
+            len: self.len
+        };
+
+        {
+            let mut last = &mut *result.first;
+            let mut last_orig = &*self.first;
+
+            while let Some(next_orig) = last_orig.next.as_ref() {
+                last.next = Some(Box::new(next_orig.flat_clone()));
+                last_orig = next_orig;
+            }
+
+            result.last = last as *mut StringNode;
+        }
+
+        result
     }
 }
 
@@ -488,6 +520,22 @@ mod test {
         let s1: StringBuffer = "Hello".parse().unwrap();
         let s2: StringBuffer = "Hells".parse().unwrap();
         assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn test_clone() {
+        let mut s1: StringBuffer = "Hello".parse().unwrap();
+        let mut s2 = s1.clone();
+
+        assert_eq!(s1, s2);
+
+        s1.truncate(0);
+        assert_eq!(s1.to_string(), "");
+        assert_eq!(s2.to_string(), "Hello");
+
+        s2.push_str("World");
+        assert_eq!(s1.to_string(), "");
+        assert_eq!(s2.to_string(), "HelloWorld");
     }
 
     // TODO test unicode

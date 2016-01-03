@@ -12,11 +12,9 @@
 // sequential reading.
 
 // TODO
-// Debug
 // docs
 // char iterator
 //   chars -> char_indices and flip order of char/index
-// Eq
 
 use std::str::FromStr;
 use std::{cmp, fmt};

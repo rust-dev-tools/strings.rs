@@ -171,7 +171,8 @@ impl StringNode {
         result.or_else(|| self.data.rfind('\n').map(|i| self.total_len() - i - 1))
     }
 
-    // Returns a flat clone of a node
+    // Returns a self-contained clone of the node,
+    // i.e. a clone without linking to another node
     fn flat_clone(&self) -> StringNode {
         StringNode {
             data: self.data.clone(),

@@ -207,7 +207,15 @@ impl fmt::Display for StringBuffer {
 
 impl fmt::Debug for StringBuffer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\"{}\"", self)
+        try!(write!(f, "StringBuffer[{:?}", self.first.data));
+
+        let mut current = &self.first;
+        while let Some(next) = current.next.as_ref() {
+            try!(write!(f, ", {:?}", next.data));
+            current = next;
+        }
+
+        write!(f, "]")
     }
 }
 

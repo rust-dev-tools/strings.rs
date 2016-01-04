@@ -12,11 +12,9 @@
 // sequential reading.
 
 // TODO
-// Debug
 // docs
 // char iterator
 //   chars -> char_indices and flip order of char/index
-// Eq
 
 use std::str::FromStr;
 use std::{cmp, fmt};
@@ -172,6 +170,15 @@ impl StringNode {
         // Otherwise, try to find a newline in the current node.
         result.or_else(|| self.data.rfind('\n').map(|i| self.total_len() - i - 1))
     }
+
+    // Returns a self-contained clone of the node,
+    // i.e. a clone without linking to another node
+    fn flat_clone(&self) -> StringNode {
+        StringNode {
+            data: self.data.clone(),
+            next: None
+        }
+    }
 }
 
 impl FromStr for StringBuffer {
@@ -198,6 +205,33 @@ impl fmt::Display for StringBuffer {
     }
 }
 
+impl fmt::Debug for StringBuffer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "StringBuffer[{:?}", self.first.data));
+
+        let mut current = &self.first;
+        while let Some(next) = current.next.as_ref() {
+            try!(write!(f, ", {:?}", next.data));
+            current = next;
+        }
+
+        write!(f, "]")
+    }
+}
+
+impl PartialEq for StringBuffer {
+    fn eq(&self, other: &StringBuffer) -> bool {
+        // Shortcut if sizes differ
+        if self.len != other.len {
+            return false
+        }
+
+        self.chars().eq(other.chars())
+    }
+}
+
+impl Eq for StringBuffer {}
+
 impl<'a> Iterator for Chars<'a> {
     type Item = (char, usize);
 
@@ -215,6 +249,30 @@ impl<'a> Iterator for Chars<'a> {
         let result = self.read_char();
 
         return Some((result, byte));
+    }
+}
+
+impl Clone for StringBuffer {
+    fn clone(&self) -> StringBuffer {
+        let mut result = StringBuffer {
+            first: Box::new(self.first.flat_clone()),
+            last: 0 as *mut StringNode,
+            len: self.len
+        };
+
+        {
+            let mut last = &mut *result.first;
+            let mut last_orig = &*self.first;
+
+            while let Some(next_orig) = last_orig.next.as_ref() {
+                last.next = Some(Box::new(next_orig.flat_clone()));
+                last_orig = next_orig;
+            }
+
+            result.last = last as *mut StringNode;
+        }
+
+        result
     }
 }
 
@@ -438,6 +496,37 @@ mod test {
 
         s.truncate(3);
         assert_eq!(3, s.cur_offset());
+    }
+
+    #[test]
+    fn test_eq() {
+        let s1: StringBuffer = "Hello".parse().unwrap();
+        let s2: StringBuffer = "Hello".parse().unwrap();
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_neq() {
+        let s1: StringBuffer = "Hello".parse().unwrap();
+        let s2: StringBuffer = "Hells".parse().unwrap();
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn test_clone() {
+        let mut s1: StringBuffer = "Hello".parse().unwrap();
+        let mut s2 = s1.clone();
+
+        assert_eq!(s1, s2);
+
+        s1.truncate(0);
+        assert_eq!(s1.to_string(), "");
+        assert_eq!(s2.to_string(), "Hello");
+
+        s2.push_str("World");
+        assert_eq!(s1.to_string(), "");
+        assert_eq!(s2.to_string(), "HelloWorld");
     }
 
     // TODO test unicode

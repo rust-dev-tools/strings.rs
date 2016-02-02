@@ -176,10 +176,14 @@ impl Rope {
     }
 
     pub fn slice(&self, Range { start, end }: Range<usize>) -> RopeSlice {
-        debug_assert!(end > start && start <= self.len && end <= self.len);
+        // This could be true for two cases
+        //    1. The Rope is empty (start == end == self.len == 0)
+        //    2. Attempting to slice the end of the rope (start == end == self.len)
         if start == end {
             return RopeSlice::empty();
         }
+
+        debug_assert!(end > start && start <= self.len && end <= self.len);
 
         let mut result = RopeSlice::empty();
         self.root.find_slice(start, end, &mut result);
@@ -753,6 +757,12 @@ mod test {
     fn test_from_string() {
         let r: Rope = "Hello world!".parse().unwrap();
         assert!(r.to_string() == "Hello world!");
+    }
+
+    #[test]
+    fn test_slice_empty_rope() {
+        let r: Rope = Rope::new();
+        let _ = r.full_slice();
     }
 
     #[test]

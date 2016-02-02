@@ -5,7 +5,15 @@
 extern crate log;
 
 // TODO should probably expose data structures, not the modules
-pub mod rope;
-pub mod src_rope;
 pub mod string_buffer;
+
 mod util;
+mod ropes;
+
+pub mod rope {
+    pub use ::ropes::Rope;
+}
+
+pub mod src_rope {
+    pub use ::ropes::SrcRope as Rope;
+}

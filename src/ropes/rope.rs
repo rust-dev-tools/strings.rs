@@ -35,16 +35,6 @@ pub struct Rope {
     storage: Vec<Vec<u8>>
 }
 
-// A view over a portion of a Rope. Analagous to string slices (`str`);
-pub struct RopeSlice<'rope> {
-    // All nodes which make up the slice, in order.
-    nodes: Vec<&'rope Lnode>,
-    // The offset of the start point in the first node.
-    start: usize,
-    // The length of text in the last node.
-    len: usize,
-}
-
 // An iterator over the chars in a rope.
 pub struct RopeChars<'rope> {
     data: RopeSlice<'rope>,
@@ -116,15 +106,7 @@ impl Rope {
     }
 }
 
-impl<'rope> RopeSlice<'rope> {
-    fn empty<'r>() -> RopeSlice<'r> {
-        RopeSlice {
-            nodes: vec![],
-            start: 0,
-            len: 0,
-        }
-    }
-}
+generate_ropeslice_struct!(Lnode);
 
 impl<'rope> Iterator for RopeChars<'rope> {
     type Item = (char, usize);
@@ -738,5 +720,50 @@ mod test {
             assert!(b == byte_pos);
             byte_pos += e.len_utf8();
         }
+    }
+
+    #[test]
+    fn test_slice_iter_from_start() {
+        let mut r: Rope = "Helloworld!".parse().unwrap();
+        // insert some data to make sure the rope is split into multiple segments
+        r.insert_copy(5, " ");
+
+        let mut slice = r.slice(0..4);
+        assert_eq!(Some(b'H'), slice.next());
+        assert_eq!(Some(b'e'), slice.next());
+        assert_eq!(Some(b'l'), slice.next());
+        assert_eq!(Some(b'l'), slice.next());
+        assert_eq!(Some(b'o'), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_iter_from_middle() {
+        let mut r: Rope = "Helloworld!".parse().unwrap();
+        // insert some data to make sure the rope is split into multiple segments
+        r.insert_copy(5, " ");
+
+        let mut slice = r.slice(3..9);
+        assert_eq!(Some(b'l'), slice.next());
+        assert_eq!(Some(b'o'), slice.next());
+        assert_eq!(Some(b' '), slice.next());
+        assert_eq!(Some(b'w'), slice.next());
+        assert_eq!(Some(b'o'), slice.next());
+        assert_eq!(Some(b'r'), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_without_split() {
+        let r: Rope = "Hello world!".parse().unwrap();
+
+        let mut slice = r.slice(3..9);
+        assert_eq!(Some(b'l'), slice.next());
+        assert_eq!(Some(b'o'), slice.next());
+        assert_eq!(Some(b' '), slice.next());
+        assert_eq!(Some(b'w'), slice.next());
+        assert_eq!(Some(b'o'), slice.next());
+        assert_eq!(Some(b'r'), slice.next());
+        assert_eq!(None, slice.next());
     }
 }

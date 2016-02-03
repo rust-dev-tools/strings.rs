@@ -208,10 +208,14 @@ impl Rope {
     }
 
     pub fn slice(&self, Range { start, end }: Range<usize>) -> RopeSlice {
-        debug_assert!(end > start && start <= self.len && end <= self.len);
+        // This could be true for two cases
+        //    1. The Rope is empty (start == end == self.len == 0)
+        //    2. Attempting to slice the end of the rope (start == end == self.len)
         if start == end {
             return RopeSlice::empty();
         }
+
+        debug_assert!(end > start && start <= self.len && end <= self.len);
 
         let mut result = RopeSlice::empty();
         self.root.find_slice(start, end, &mut result);
@@ -305,7 +309,7 @@ impl<'rope> RopeChars<'rope> {
         let addr = addr as *const u8;
         unsafe {
             *addr
-        }        
+        }
     }
 }
 
@@ -588,7 +592,7 @@ impl Node {
         match *self {
             Node::InnerNode(ref mut i) => i.replace(start, new_str),
             Node::LeafNode(ref mut l) => l.replace(start, new_str),
-        }        
+        }
     }
 
     fn col_for_src_loc(&self, src_loc: usize) -> Search {
@@ -1072,7 +1076,7 @@ impl Lnode {
             // The source location we are looking up has been removed
             self.len as isize
         } else {
-            (src_loc as isize + self.src_offset) 
+            (src_loc as isize + self.src_offset)
         };
 
         // FIXME if '/n' as u8 is part of a multi-byte grapheme, then this will
@@ -1167,19 +1171,25 @@ mod test {
     }
 
     #[test]
+    fn test_slice_empty_rope() {
+        let r: Rope = Rope::new();
+        let _ = r.full_slice();
+    }
+
+    #[test]
     fn test_remove() {
         let mut r: Rope = "Hello world!".parse().unwrap();
         r.remove(0, 10);
         assert!(r.to_string() == "d!");
         assert!(r.src_slice(0..5).to_string() == "");
-        assert!(r.src_slice(10..12).to_string() == "d!");       
+        assert!(r.src_slice(10..12).to_string() == "d!");
 
         let mut r: Rope = "Hello world!".parse().unwrap();
         r.remove(4, 12);
         assert!(r.to_string() == "Hell");
         // TODO
         //assert!(r.src_slice(0..4).to_string() == "Hell");
-        //assert!(r.src_slice(10..12).to_string() == "");       
+        //assert!(r.src_slice(10..12).to_string() == "");
 
         let mut r: Rope = "Hello world!".parse().unwrap();
         r.remove(4, 10);

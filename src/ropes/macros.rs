@@ -95,3 +95,88 @@ macro_rules! impl_rope {
         }
     }
 }
+
+
+/// Generate struct definition and implementation of RopeSlice
+///
+/// This is done through a macro because it relies on the Lnode type which is different
+/// depending on which type of Rope you are working with. This macro is used in both the
+/// rope & src_rope modules of this crate. In both places, the Lnode type from that
+/// module is passed in so we can generate the correct struct definition.
+macro_rules! generate_ropeslice_struct {
+    ($lnode: ty) => {
+        // A view over a portion of a Rope. Analagous to string slices (`str`);
+        pub struct RopeSlice<'rope> {
+            // All nodes which make up the slice, in order.
+            nodes: Vec<&'rope $lnode>,
+            // The offset of the start point in the first node.
+            start: usize,
+            // The length of text in the last node.
+            len: usize,
+            // The index of the current byte - only used for iterating
+            cur_byte: usize,
+            // The index of the current node - only used for iterating
+            cur_node: usize,
+        }
+
+        impl<'rope> RopeSlice<'rope> {
+            fn empty<'r>() -> RopeSlice<'r> {
+                RopeSlice {
+                    nodes: vec![],
+                    start: 0,
+                    len: 0,
+                    cur_node: 0,
+                    cur_byte: 0,
+                }
+            }
+        }
+
+        impl<'rope> Iterator for RopeSlice<'rope> {
+            type Item = u8;
+
+            fn next(&mut self) -> Option<u8> {
+                if self.cur_node >= self.nodes.len() {
+                    return None;
+                }
+
+                let node = self.nodes[self.cur_node];
+                let len = node.len;
+                let text = node.text;
+
+                // if this is the first node, add the 'start' position to the current byte offset
+                if self.cur_node == 0 && self.cur_byte == 0 && self.start > 0 {
+                    self.cur_byte += self.start;
+                }
+
+
+                // if this is the last node and we have a start offset...
+                if self.cur_node == (self.nodes.len() - 1) && self.start > 0 {
+                    let end_pos = len - self.start;
+                    let next_byte = self.cur_byte + 1;
+
+                    if next_byte > end_pos {
+                        return None
+                    }
+                }
+
+                if self.cur_byte >= len {
+                    self.cur_byte = 0;
+                    self.cur_node += 1;
+                    return self.next();
+                }
+
+
+                let byte = {
+                    let addr = text as usize + self.cur_byte;
+                    self.cur_byte += 1;
+                    let addr = addr as *const u8;
+                    unsafe {
+                        *addr
+                    }
+                };
+
+                return Some(byte);
+            }
+        }
+    }
+}

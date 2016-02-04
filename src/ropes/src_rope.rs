@@ -167,6 +167,16 @@ impl<'rope> RopeSlice<'rope> {
             len: 0,
         }
     }
+
+    pub fn iter_chars(self) -> RopeChars<'rope> {
+        let start = self.start;
+        RopeChars {
+            data: self,
+            cur_node: 0,
+            cur_byte: start,
+            abs_byte: start,
+        }
+    }
 }
 
 impl<'rope> Iterator for RopeChars<'rope> {
@@ -178,6 +188,22 @@ impl<'rope> Iterator for RopeChars<'rope> {
 
         let byte = self.abs_byte;
         let node = self.data.nodes[self.cur_node];
+
+        if self.cur_node == self.data.nodes.len() - 1 {
+
+            if self.cur_node == 0 && self.cur_byte > self.data.len + self.data.start {
+                // this is the first & last node
+                // we are at the end of the target slice
+                return None
+            }
+
+            if self.cur_byte + 1 > node.len - self.data.start {
+                // this is the last node
+                // we are at the end of the target slice
+                return None
+            }
+        }
+
         if self.cur_byte >= node.len {
             self.cur_byte = 0;
             self.cur_node += 1;
@@ -1197,5 +1223,101 @@ mod test {
         r.src_insert(0, "bar".to_string());
         r.src_insert(12, "bar".to_string());
         assert!(r.to_string() == "barfooHelbarlbarfooobar world!barfoo");
+    }
+
+    #[test]
+    fn test_slice_iter() {
+        let mut r: Rope = "Helloworld!".parse().unwrap();
+        r.insert_copy(5, " ");
+
+        let mut slice = r.slice(3..8).iter_chars();
+
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(Some(('o', 4)), slice.next());
+        assert_eq!(Some((' ', 5)), slice.next());
+        assert_eq!(Some(('w', 6)), slice.next());
+        assert_eq!(Some(('o', 7)), slice.next());
+        assert_eq!(Some(('r', 8)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_from_start() {
+        let mut r: Rope = "Helloworld!".parse().unwrap();
+        r.insert_copy(5, " ");
+
+        let mut slice = r.slice(0..6).iter_chars();
+
+        assert_eq!(Some(('H', 0)), slice.next());
+        assert_eq!(Some(('e', 1)), slice.next());
+        assert_eq!(Some(('l', 2)), slice.next());
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(Some(('o', 4)), slice.next());
+        assert_eq!(Some((' ', 5)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_iter_no_split() {
+        let r: Rope = "Hello world!".parse().unwrap();
+
+        let mut slice = r.slice(3..8).iter_chars();
+
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(Some(('o', 4)), slice.next());
+        assert_eq!(Some((' ', 5)), slice.next());
+        assert_eq!(Some(('w', 6)), slice.next());
+        assert_eq!(Some(('o', 7)), slice.next());
+        assert_eq!(Some(('r', 8)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_iter_special_chars() {
+        let r: Rope = "Hello©world".parse().unwrap();
+        let mut slice = r.slice(3..8).iter_chars();
+
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(Some(('o', 4)), slice.next());
+        assert_eq!(Some(('\u{a9}', 5)), slice.next());
+        assert_eq!(Some(('w', 7)), slice.next());
+        assert_eq!(Some(('o', 8)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_slice_iter_special_chars_split() {
+        let mut r: Rope = "Helloworld".parse().unwrap();
+        r.insert_copy(5, "©");
+
+        let mut slice = r.slice(3..8).iter_chars();
+
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(Some(('o', 4)), slice.next());
+        assert_eq!(Some(('\u{a9}', 5)), slice.next());
+        assert_eq!(Some(('w', 7)), slice.next());
+        assert_eq!(Some(('o', 8)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_small_slice_single_node() {
+        let r: Rope = "Hello world".parse().unwrap();
+        let mut slice = r.slice(1..3).iter_chars();
+
+        assert_eq!(Some(('e', 1)), slice.next());
+        assert_eq!(Some(('l', 2)), slice.next());
+        assert_eq!(Some(('l', 3)), slice.next());
+        assert_eq!(None, slice.next());
+    }
+
+    #[test]
+    fn test_small_slice_start_single_node() {
+        let r: Rope = "Hello world".parse().unwrap();
+        let mut slice = r.slice(0..1).iter_chars();
+
+        assert_eq!(Some(('H', 0)), slice.next());
+        assert_eq!(Some(('e', 1)), slice.next());
+        assert_eq!(None, slice.next());
     }
 }

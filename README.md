@@ -8,12 +8,11 @@ Currently contains (more welcome):
 
 All data structures are unicode (UTF8) based and interact as closely as possible with Rust strings.
 
-TODO doc char iterators
+TODO document char iterators
 
 
 TODO
 ----
 
-Cargo.toml
 share code between rope and src_rope
 balanced rope

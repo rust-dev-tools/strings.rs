@@ -1,6 +1,6 @@
 [package]
 name = "strings"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["nrc <ncameron@mozilla.com>"]
 description = "String utilities, including an unbalanced Rope"
 repository = "https://github.com/nrc/strings.rs"

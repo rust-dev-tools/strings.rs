@@ -1,12 +1,12 @@
 [package]
 name = "strings"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["nrc <ncameron@mozilla.com>"]
 description = "String utilities, including an unbalanced Rope"
 repository = "https://github.com/nrc/strings.rs"
 readme = "README.md"
 license = "Apache-2.0/MIT"
-include = ["src/*.rs", "Cargo.toml"]
+include = ["src/*.rs", "Cargo.toml", "LICENSE-APACHE", "LICENSE-MIT"]
 
 [lib]
 name = "strings"
